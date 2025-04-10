@@ -32,19 +32,17 @@ function QuestionScreen({ navigation, route }) {
   const question = data[index];
   const isMultiAnswer = question.type === "multiple-answer";
 
-  const [selected, setSelected] = useState(
-    isMultiAnswer ? [] : -1
-  );
+  const [selected, setSelected] = useState(isMultiAnswer ? [] : -1);
 
   const handleSelect = (i) => {
     if (isMultiAnswer) {
-      setSelected((prev) => {
-        // Ensure prev is always an array
-        const safePrev = Array.isArray(prev) ? prev : [];
-        return safePrev.includes(i)
-          ? safePrev.filter((x) => x !== i)
-          : [...safePrev, i];
-      });
+      setSelected((prev) =>
+        Array.isArray(prev)
+          ? prev.includes(i)
+            ? prev.filter((x) => x !== i)
+            : [...prev, i]
+          : [i]
+      );
     } else {
       setSelected(i);
     }
@@ -63,15 +61,8 @@ function QuestionScreen({ navigation, route }) {
     navigation.navigate(
       index + 1 < data.length ? 'Question' : 'Summary',
       index + 1 < data.length
-        ? {
-            data,
-            index: index + 1,
-            answers: updatedAnswers,
-          }
-        : {
-            data,
-            answers: updatedAnswers,
-          }
+        ? { data, index: index + 1, answers: updatedAnswers }
+        : { data, answers: updatedAnswers }
     );
   };
 
@@ -133,7 +124,7 @@ function SummaryScreen({ route }) {
       </Text>
       {data.map((q, i) => (
         <View key={i} style={{ marginBottom: 15 }}>
-          <Text style={styles.prompt}>{q.prompt}</Text>
+          <Text style={[styles.prompt, { color: '#fff' }]}>{q.prompt}</Text>
           {q.choices.map((choice, j) => {
             const userAnswer = answers[i];
             const isCorrect = Array.isArray(q.correct)
@@ -156,7 +147,9 @@ function SummaryScreen({ route }) {
             } else if (!wasChosen && isCorrect) {
               style = { fontWeight: 'bold', color: 'green' };
             } else if (wasChosen) {
-              style = { color: '#ccc' };
+              style = { color: '#ccc' }; // neutral gray for previously selected
+            } else {
+              style = { color: '#fff' }; // ensure visibility for untouched answers
             }
 
             return (
