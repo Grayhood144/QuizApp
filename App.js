@@ -1,8 +1,11 @@
-import React, { useState } from 'react';
-import { Text, View, Button, ScrollView, StyleSheet } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import React, { useState, useEffect } from 'react';
+import { Text, View, Button, ScrollView, StyleSheet, Switch } from 'react-native';
+import { NavigationContainer, DefaultTheme, DarkTheme, useTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ButtonGroup } from 'react-native-elements';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const THEME_KEY = 'app_theme';
 
 const Stack = createNativeStackNavigator();
 
@@ -28,6 +31,7 @@ const questions = [
 ];
 
 function QuestionScreen({ navigation, route }) {
+  const { colors } = useTheme();
   const { data, index, answers } = route.params;
   const question = data[index];
   const isMultiAnswer = question.type === "multiple-answer";
@@ -67,8 +71,8 @@ function QuestionScreen({ navigation, route }) {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.prompt}>{question.prompt}</Text>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <Text style={[styles.prompt, { color: colors.text }]}>{question.prompt}</Text>
       <ButtonGroup
         vertical
         buttons={question.choices}
@@ -104,6 +108,7 @@ function QuestionScreen({ navigation, route }) {
 }
 
 function SummaryScreen({ route }) {
+  const { colors } = useTheme();
   const { data, answers } = route.params;
 
   const score = data.reduce((total, question, i) => {
@@ -118,13 +123,13 @@ function SummaryScreen({ route }) {
   }, 0);
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
       <Text style={styles.score} testID="total">
         Score: {score} / {data.length}
       </Text>
       {data.map((q, i) => (
         <View key={i} style={{ marginBottom: 15 }}>
-          <Text style={[styles.prompt, { color: '#fff' }]}>{q.prompt}</Text>
+          <Text style={[styles.prompt, { color: colors.text }]}>{q.prompt}</Text>
           {q.choices.map((choice, j) => {
             const userAnswer = answers[i];
             const isCorrect = Array.isArray(q.correct)
@@ -149,7 +154,7 @@ function SummaryScreen({ route }) {
             } else if (wasChosen) {
               style = { color: '#ccc' }; // neutral gray for previously selected
             } else {
-              style = { color: '#fff' }; // ensure visibility for untouched answers
+              style = { color: colors.text };
             }
 
             return (
@@ -165,9 +170,37 @@ function SummaryScreen({ route }) {
 }
 
 export default function App() {
+  const [theme, setTheme] = useState('light');
+  const [isReady, setIsReady] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem(THEME_KEY)
+      .then(saved => {
+        if (saved === 'light' || saved === 'dark') setTheme(saved);
+      })
+      .catch(() => {})
+      .finally(() => setIsReady(true));
+  }, []);
+
+  useEffect(() => {
+    if (!isReady) return;
+    AsyncStorage.setItem(THEME_KEY, theme).catch(() => {});
+  }, [theme, isReady]);
+
+  const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light');
+
+  if (!isReady) return null;
+
   return (
-    <NavigationContainer>
-      <Stack.Navigator initialRouteName="Question">
+    <NavigationContainer theme={theme === 'dark' ? DarkTheme : DefaultTheme}>
+      <Stack.Navigator
+        initialRouteName="Question"
+        screenOptions={{
+          headerRight: () => (
+            <Switch value={theme === 'dark'} onValueChange={toggleTheme} />
+          ),
+        }}
+      >
         <Stack.Screen
           name="Question"
           component={QuestionScreen}
@@ -183,11 +216,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: '#121212',
   },
   prompt: {
     fontSize: 18,
-    color: '#fff',
     marginBottom: 10,
   },
   score: {
